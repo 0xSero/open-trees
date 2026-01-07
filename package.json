@@ -1,0 +1,36 @@
+{
+  "name": "open-trees",
+  "version": "0.1.0",
+  "description": "OpenCode plugin for safe git worktree workflows.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "open-trees": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "bun build src/index.ts src/cli.ts --outdir dist --target bun --format esm && tsc --emitDeclarationOnly",
+    "lint": "bunx @biomejs/biome check .",
+    "format": "bunx @biomejs/biome format --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:e2e": "bun test tests/e2e.test.ts"
+  },
+  "keywords": ["opencode", "plugin", "git", "worktree"],
+  "license": "MIT",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.1.3",
+    "jsonc-parser": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.7.3"
+  }
+}

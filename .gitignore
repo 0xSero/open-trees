@@ -1,0 +1,11 @@
+node
+node_modules
+dist
+bun.lockb
+bun.lock
+.opencode/*
+!.opencode/command/
+!.opencode/command/*.md
+coverage/
+.DS_Store
+*.log
