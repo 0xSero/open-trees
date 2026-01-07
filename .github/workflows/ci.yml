@@ -28,6 +28,8 @@ jobs:
         run: bun run build
       - name: E2E tests
         run: bun run test:e2e
+      - name: Bun security scan
+        run: bun pm scan
       - name: Audit dependencies
         run: |
           npm install --package-lock-only --ignore-scripts

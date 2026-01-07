@@ -176,6 +176,8 @@ bun run typecheck
 bun run build
 bun run test
 bun run test:e2e
+bun pm scan
+npm audit --omit=dev
 ```
 
 ## Versioning

@@ -1,4 +1,4 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { PluginInput, ToolDefinition } from "@opencode-ai/plugin";
 import { tool } from "@opencode-ai/plugin";
 
 import { formatError } from "./format";
@@ -89,7 +89,7 @@ const runWhenEnabled = async (fn: () => Promise<ToolResult>) => {
   return renderToolResult(await fn());
 };
 
-export const createTools = (ctx: PluginInput) => ({
+export const createTools = (ctx: PluginInput): Record<string, ToolDefinition> => ({
   worktree_mode: tool({
     description: TOOL_CATALOG[0].summary,
     args: {

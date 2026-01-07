@@ -10,6 +10,7 @@ The format is based on Keep a Changelog, and this project adheres to Semantic Ve
 - Worktree mode gating with four primary tools for a tighter UX.
 - Worktree mode state tracking and tests for mode persistence.
 - CI workflow, Dependabot configuration, and contributor docs.
+- Bun security scanner configuration and npm audit in CI.
 
 ### Changed
 - Default worktree root is now `<repo>/.worktrees/<branch>`.

@@ -39,6 +39,7 @@
     "jsonc-parser": "^3.3.1"
   },
   "devDependencies": {
+    "@bun-security-scanner/osv": "^1.0.0",
     "@types/node": "^20.14.0",
     "typescript": "^5.7.3"
   }
