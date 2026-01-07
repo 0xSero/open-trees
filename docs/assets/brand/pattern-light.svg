@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="160" viewBox="0 0 1200 160" role="img" aria-labelledby="title desc">
+  <title id="title">Warm paper botanical pattern</title>
+  <desc id="desc">Subtle botanical line art for documentation headers.</desc>
+  <defs>
+    <linearGradient id="wash" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="hsl(40, 30%, 97%)" />
+      <stop offset="100%" stop-color="hsl(38, 25%, 95%)" />
+    </linearGradient>
+    <pattern id="grain" width="26" height="26" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="6" r="1" fill="hsl(35, 20%, 88%)" opacity="0.45" />
+      <circle cx="16" cy="14" r="1.1" fill="hsl(35, 20%, 88%)" opacity="0.4" />
+    </pattern>
+    <g id="leaf">
+      <path d="M0 0 C 10 -16 34 -16 44 0 C 34 16 10 16 0 0 Z" />
+      <path d="M6 0 C 16 -2 28 -2 38 0" />
+    </g>
+  </defs>
+  <rect width="1200" height="160" fill="url(#wash)" />
+  <rect width="1200" height="160" fill="url(#grain)" opacity="0.6" />
+  <g stroke="hsl(30, 18%, 35%)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M0 115 C220 70 420 140 600 95 C820 50 980 140 1200 85" stroke-width="2" opacity="0.5" />
+    <use href="#leaf" transform="translate(120 92) rotate(-10) scale(0.55)" />
+    <use href="#leaf" transform="translate(260 86) rotate(12) scale(0.6)" />
+    <use href="#leaf" transform="translate(430 104) rotate(-14) scale(0.5)" />
+    <use href="#leaf" transform="translate(610 86) rotate(18) scale(0.6)" />
+    <use href="#leaf" transform="translate(780 98) rotate(-18) scale(0.55)" />
+    <use href="#leaf" transform="translate(980 84) rotate(14) scale(0.6)" />
+  </g>
+</svg>

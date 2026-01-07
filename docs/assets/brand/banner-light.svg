@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-labelledby="title desc">
+  <title id="title">Open Trees</title>
+  <desc id="desc">Warm paper banner with botanical sketch.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="hsl(40, 30%, 97%)" />
+      <stop offset="100%" stop-color="hsl(38, 28%, 95%)" />
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="hsl(40, 25%, 96%)" />
+      <stop offset="100%" stop-color="hsl(40, 25%, 94%)" />
+    </linearGradient>
+    <pattern id="grain" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="6" cy="6" r="1" fill="hsl(35, 20%, 88%)" opacity="0.5" />
+      <circle cx="18" cy="12" r="1.2" fill="hsl(35, 20%, 88%)" opacity="0.45" />
+      <circle cx="10" cy="22" r="0.9" fill="hsl(35, 20%, 88%)" opacity="0.4" />
+    </pattern>
+    <path id="leaf-shape" d="M0 0 C 14 -22 46 -22 60 0 C 46 22 14 22 0 0 Z" />
+    <path id="leaf-vein" d="M8 0 C 22 -2 38 -2 52 0" />
+    <g id="leaf-outline">
+      <use href="#leaf-shape" />
+      <use href="#leaf-vein" />
+    </g>
+    <clipPath id="card-clip" clipPathUnits="userSpaceOnUse">
+      <rect x="70" y="70" width="660" height="280" rx="24" />
+    </clipPath>
+  </defs>
+  <rect width="1200" height="420" fill="url(#paper)" />
+  <rect width="1200" height="420" fill="url(#grain)" opacity="0.5" />
+  <rect x="70" y="70" width="660" height="280" rx="24" fill="url(#card)" stroke="hsl(35, 15%, 85%)" />
+  <g clip-path="url(#card-clip)">
+    <use href="#leaf-shape" transform="translate(150 210) rotate(-6) scale(5.2)" fill="hsl(35, 20%, 88%)" opacity="0.28" />
+    <path d="M120 260 C210 210 330 240 450 210 C530 190 610 190 680 170" stroke="hsl(35, 15%, 85%)" stroke-width="2" opacity="0.7" fill="none" />
+    <g fill="none" stroke="hsl(30, 18%, 35%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+      <use href="#leaf-outline" transform="translate(140 240) rotate(-18) scale(0.7)" />
+      <use href="#leaf-outline" transform="translate(210 220) rotate(12) scale(0.65)" />
+      <use href="#leaf-outline" transform="translate(300 238) rotate(-12) scale(0.6)" />
+      <use href="#leaf-outline" transform="translate(400 214) rotate(18) scale(0.7)" />
+      <use href="#leaf-outline" transform="translate(500 198) rotate(-6) scale(0.6)" />
+      <use href="#leaf-outline" transform="translate(590 188) rotate(14) scale(0.55)" />
+    </g>
+    <g fill="hsl(35, 20%, 88%)" opacity="0.7">
+      <circle cx="170" cy="150" r="3" />
+      <circle cx="240" cy="170" r="2" />
+      <circle cx="520" cy="140" r="2.5" />
+      <circle cx="620" cy="150" r="3" />
+    </g>
+  </g>
+  <g stroke="hsl(30, 18%, 35%)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke-width="3" opacity="0.8">
+      <path d="M980 350 C940 310 920 260 930 210 C940 160 990 120 1060 80" />
+      <path d="M940 260 C900 240 860 240 820 250" />
+      <path d="M960 220 C990 210 1020 200 1050 200" />
+    </g>
+    <g stroke-width="2" opacity="0.9">
+      <use href="#leaf-outline" transform="translate(900 150) rotate(-18) scale(0.75)" />
+      <use href="#leaf-outline" transform="translate(950 120) rotate(8) scale(0.8)" />
+      <use href="#leaf-outline" transform="translate(1015 120) rotate(22) scale(0.72)" />
+      <use href="#leaf-outline" transform="translate(975 200) rotate(-6) scale(0.85)" />
+      <use href="#leaf-outline" transform="translate(860 232) rotate(-30) scale(0.62)" />
+      <use href="#leaf-outline" transform="translate(835 260) rotate(12) scale(0.52)" />
+      <use href="#leaf-outline" transform="translate(930 300) rotate(18) scale(0.7)" />
+      <use href="#leaf-outline" transform="translate(1020 280) rotate(-12) scale(0.6)" />
+      <use href="#leaf-outline" transform="translate(1055 235) rotate(35) scale(0.55)" />
+    </g>
+  </g>
+</svg>

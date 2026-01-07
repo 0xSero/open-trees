@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/banner-dark.svg" />
+  <img alt="Open Trees warm paper banner" src="docs/assets/brand/banner-light.svg" width="100%" />
+</picture>
+
 # Open Trees
 
 OpenCode plugin for fast, safe `git worktree` workflows.
@@ -183,6 +188,15 @@ npm audit --omit=dev
 ## Versioning
 
 Open Trees follows Semantic Versioning and tracks notable changes in `CHANGELOG.md`.
+
+## Brand
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/brand/release-dark.svg" />
+  <img alt="Open Trees release card" src="docs/assets/brand/release-light.svg" width="100%" />
+</picture>
+
+Brand visuals, SVG assets, and usage guidelines live in `docs/brand.md`.
 
 ## Contributing
 

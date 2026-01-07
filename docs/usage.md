@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/pattern-dark.svg" />
+  <img alt="Warm paper pattern" src="assets/brand/pattern-light.svg" width="100%" />
+</picture>
+
 # Usage Guide
 
 ## Enable Worktree Mode

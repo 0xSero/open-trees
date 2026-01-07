@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/brand/banner-dark.svg" />
+  <img alt="Open Trees warm paper banner" src="assets/brand/banner-light.svg" width="100%" />
+</picture>
+
 # Open Trees
 
 OpenCode plugin for fast, safe `git worktree` workflow management.
@@ -77,3 +82,7 @@ worktree_make { "action": "create", "name": "feature auth" }
 # Start a session in the worktree
 worktree_make { "action": "start", "name": "feature auth", "openSessions": true }
 ```
+
+## Brand
+
+Warm paper visuals and SVG assets live in `docs/brand.md`.
