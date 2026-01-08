@@ -185,8 +185,8 @@ When a session is deleted, the plugin automatically removes the mapping from sta
 Add these files to your `.opencode/command` directory for quick access:
 
 ```text
-# .opencode/command/worktree-on.md
-worktree_mode { "action": "on" }
+# .opencode/command/worktree.md
+worktree_mode { "action": "$1" }
 ```
 
 ```text
@@ -207,6 +207,8 @@ worktree_cleanup { "action": "remove", "pathOrBranch": "$1" }
 Usage:
 
 ```text
+/worktree on
+/worktree off
 /worktree-make feature-auth
 /worktree-clean feature-auth
 ```

@@ -49,7 +49,17 @@ worktree_mode { "action": "on" }
 worktree_mode { "action": "off" }
 ```
 
-`worktree_mode` also prints a help sheet with examples and defaults.
+`worktree_mode` also prints a help sheet (tools + examples) so the model has the usage context.
+
+Slash-native toggle (see `.opencode/command/worktree.md`):
+
+```text
+/worktree on
+/worktree off
+```
+
+`/worktree on` enables the tools and emits the help sheet into the session.
+`/worktree off` disables them and keeps them off for the next session.
 
 ## Tools
 
@@ -152,6 +162,11 @@ Swarm safety notes:
 Optional command file examples:
 
 ```text
+# .opencode/command/worktree.md
+worktree_mode { "action": "$1" }
+```
+
+```text
 # .opencode/command/worktree-start.md
 worktree_make { "action": "start", "name": "$1", "openSessions": true }
 ```
@@ -164,7 +179,8 @@ worktree_make { "action": "open", "pathOrBranch": "$1", "openSessions": true }
 Slash commands (drop these files into `.opencode/command`):
 
 ```text
-/worktree-on
+/worktree on
+/worktree off
 /worktree-overview
 /worktree-make <name>
 /worktree-clean <pathOrBranch>
