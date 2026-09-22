@@ -100,7 +100,7 @@ export const getRepoRoot = async (ctx: PluginInput) => {
 };
 
 export const getWorktrees = async (ctx: PluginInput, repoRoot: string) => {
-  const result = await runGit(ctx, ["worktree", "list", "--porcelain"], {
+  const result = await runGit(ctx, ["worktree", "list", "--porcelain", "-z"], {
     cwd: repoRoot,
   });
 
@@ -115,7 +115,7 @@ const normalizeBranchRef = (value: string) =>
   value.startsWith("refs/heads/") ? value.slice("refs/heads/".length) : value;
 
 export const parseWorktreeList = (output: string): WorktreeInfo[] => {
-  const lines = output.split(/\r?\n/);
+  const lines = output.includes("\0") ? output.split("\0") : output.split(/\r?\n/);
   const worktrees: WorktreeInfo[] = [];
   let current: WorktreeInfo | null = null;
 
@@ -124,8 +124,8 @@ export const parseWorktreeList = (output: string): WorktreeInfo[] => {
     current = null;
   };
 
-  // `git worktree list --porcelain` emits blank-line-delimited blocks. We treat each
-  // block as a worktree and collect key/value pairs until the next blank line.
+  // NUL-delimited porcelain preserves embedded newlines and whitespace in paths.
+  // Keep accepting line-delimited output for callers with existing fixtures.
   for (const line of lines) {
     if (!line.trim()) {
       commitCurrent();
@@ -133,7 +133,7 @@ export const parseWorktreeList = (output: string): WorktreeInfo[] => {
     }
 
     const [key, ...rest] = line.split(" ");
-    const value = rest.join(" ").trim();
+    const value = rest.join(" ");
 
     if (key === "worktree") {
       commitCurrent();
