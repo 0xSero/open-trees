@@ -7,22 +7,34 @@
 
 OpenCode plugin for fast, safe `git worktree` workflows.
 
+This branch is the **native OpenCode V2 port** (`2.0.0-beta.1`). It requires
+OpenCode V2.0.18 or newer and Git. OpenCode V1 users should stay on the existing
+1.x release; the npm `open-trees@1.0.1` package does not load in V2.
+
 ## Install
 
-Single command (recommended):
+Install the V2 fork while the upstream contribution is under review:
 
 ```bash
-bunx open-trees add
+opencode plugin add 'github:balakumardev/open-trees#feat/opencode-v2'
 ```
 
-This updates your OpenCode config (default: `~/.config/opencode/opencode.json`).
-OpenCode installs npm plugins automatically at startup (cached in `~/.cache/opencode/node_modules`).
+This updates your global OpenCode configuration. The Git package exports its
+TypeScript sources directly, so installation does not depend on a prebuilt
+`dist/` directory or lifecycle scripts. Both the server tools and the native
+terminal session picker load from the same package.
+
+Optional development artifacts use `bun run bundle`, not a lifecycle `build`
+script. npm Git fetchers treat `build` as a preparation trigger even without a
+`prepare` script; source installation does not need that extra dependency step.
+The existing `bun run build` command remains available through `build.ts` for CI
+and development; it is not an npm lifecycle hook.
 
 Manual config:
 
 ```json
 {
-  "plugin": ["open-trees"]
+  "plugins": ["github:balakumardev/open-trees#feat/opencode-v2"]
 }
 ```
 
@@ -30,12 +42,12 @@ For local development, build the plugin and point OpenCode at the local package:
 
 ```bash
 bun install
-bun run build
+bun run bundle
 ```
 
 ```json
 {
-  "plugin": ["/absolute/path/to/open-trees"]
+  "plugins": ["/absolute/path/to/open-trees/src"]
 }
 ```
 
@@ -154,6 +166,24 @@ Each action records a mapping entry at:
 
 The session title defaults to `wt:<branch>`, and the output includes the session ID plus next steps.
 
+V2 session forks inherit the source location. Open Trees explicitly moves the
+fork, waits for that operation, and checks its final location before recording a
+mapping. Shared state updates are serialized across plugin location instances.
+
+`fork` and `swarm` currently require OpenCode's **managed local background
+service**, because the V2 plugin context does not expose `session.fork`. The
+plugin discovers that service without starting another one and verifies the
+host PID before using it. Those two actions return an explicit error under
+`--standalone` or an independently started server; they do not claim to have
+created a correctly located fork. Other worktree actions use the native plugin
+context directly.
+
+The V2.0.18 terminal SDK does not provide cancellation or owner-aware closing
+for an already-open selection dialog. Unload cancels list requests and ignores
+late dialog results; the plugin deliberately does not clear a potentially
+foreign dialog. Session lists follow every pagination cursor, including swarms
+larger than the API's default page size.
+
 Swarm safety notes:
 
 - `worktree_make` with `action: "swarm"` refuses to reuse existing branches or paths unless `force: true`.
@@ -188,12 +218,18 @@ Slash commands (drop these files into `.opencode/command`):
 
 ## Development
 
-E2E tests exercise the CLI against a temporary OpenCode config file.
+E2E tests exercise the CLI against a temporary OpenCode config file. Native V2
+regressions use isolated Git repositories and temporary mode/state directories,
+including dirty-removal protection, path traversal, session API contracts, event
+cleanup, concurrent mappings, and terminal session selection.
+
+Set `OPENCODE_TEST_TMPDIR` to choose the parent directory for native test fixtures;
+otherwise they use the operating system's temporary directory.
 
 ```bash
 bun run lint
 bun run typecheck
-bun run build
+bun run bundle
 bun run test
 bun run test:e2e
 bun pm scan

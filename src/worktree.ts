@@ -1,6 +1,6 @@
 import { mkdir } from "node:fs/promises";
 
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { WorktreeContext } from "./context";
 
 import { formatCommand, formatError, renderTable } from "./format";
 import { formatGitFailure, getRepoRoot, getWorktrees, runGit } from "./git";
@@ -36,7 +36,7 @@ const prepareWorktreeDirectory = async (worktreePath: string) => {
   return { ok: true as const };
 };
 
-export const listWorktrees = async (ctx: PluginInput): Promise<ToolResult> => {
+export const listWorktrees = async (ctx: WorktreeContext): Promise<ToolResult> => {
   const repoRoot = await getRepoRoot(ctx);
   if (!repoRoot.ok) return err(repoRoot.error);
 
@@ -70,7 +70,7 @@ export type WorktreeCreateDetails = {
 };
 
 export const createWorktreeDetails = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: { name?: string; branch?: string; base?: string; path?: string },
 ) => {
   const repoRoot = await getRepoRoot(ctx);
@@ -153,7 +153,7 @@ export const createWorktreeDetails = async (
 };
 
 export const createWorktree = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: { name?: string; branch?: string; base?: string; path?: string },
 ): Promise<ToolResult> => {
   const result = await createWorktreeDetails(ctx, options);
@@ -176,7 +176,7 @@ export const createWorktree = async (
 };
 
 export const removeWorktree = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: { pathOrBranch: string; force?: boolean },
 ): Promise<ToolResult> => {
   const repoRoot = await getRepoRoot(ctx);
@@ -265,7 +265,7 @@ export const removeWorktree = async (
 };
 
 export const pruneWorktrees = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: { dryRun?: boolean },
 ): Promise<ToolResult> => {
   const repoRoot = await getRepoRoot(ctx);

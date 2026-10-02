@@ -3,6 +3,7 @@ import { applyEdits, modify, type ParseError, parse, printParseErrorCode } from 
 import { formatError } from "./format";
 
 type ConfigObject = Record<string, unknown>;
+type PluginEntry = string | { package: string; options?: Record<string, unknown> };
 
 type ParsedConfig = {
   config: ConfigObject;
@@ -25,31 +26,34 @@ const parseConfigText = (text: string): ParsedConfig => {
   return { config: value as ConfigObject, errors, isObject: true };
 };
 
-const coercePluginList = (value: unknown) => {
-  if (value === undefined) return { ok: true as const, plugins: [] as string[] };
+const coercePluginList = (value: unknown, field: "plugin" | "plugins") => {
+  if (value === undefined) return { ok: true as const, plugins: [] as PluginEntry[] };
   if (!Array.isArray(value)) {
     return {
       ok: false as const,
-      error: formatError("Config field 'plugin' must be an array.", {
+      error: formatError(`Config field '${field}' must be an array.`, {
         hint: "Update opencode.json to use a plugin array.",
       }),
     };
   }
 
   for (const item of value) {
-    if (typeof item !== "string") {
+    if (
+      typeof item !== "string" &&
+      !(field === "plugins" && item && typeof item === "object" && typeof item.package === "string")
+    ) {
       return {
         ok: false as const,
-        error: formatError("Config field 'plugin' must contain strings only."),
+        error: formatError(`Config field '${field}' contains an invalid plugin entry.`),
       };
     }
   }
 
-  return { ok: true as const, plugins: value as string[] };
+  return { ok: true as const, plugins: value as PluginEntry[] };
 };
 
 export type ConfigUpdateResult =
-  | { ok: true; changed: boolean; updatedText: string; plugins: string[] }
+  | { ok: true; changed: boolean; updatedText: string; plugins: PluginEntry[] }
   | { ok: false; error: string };
 
 export const updateConfigText = (text: string | null, pluginName: string): ConfigUpdateResult => {
@@ -58,7 +62,7 @@ export const updateConfigText = (text: string | null, pluginName: string): Confi
     return {
       ok: true,
       changed: true,
-      updatedText: `${JSON.stringify({ plugin: plugins }, null, 2)}\n`,
+      updatedText: `${JSON.stringify({ plugins }, null, 2)}\n`,
       plugins,
     };
   }
@@ -84,18 +88,26 @@ export const updateConfigText = (text: string | null, pluginName: string): Confi
     };
   }
 
-  const pluginResult = coercePluginList(parsed.config.plugin);
+  const field =
+    parsed.config.plugins !== undefined
+      ? "plugins"
+      : parsed.config.plugin !== undefined
+        ? "plugin"
+        : "plugins";
+  const pluginResult = coercePluginList(parsed.config[field], field);
   if (!pluginResult.ok) return pluginResult;
 
   const plugins = [...pluginResult.plugins];
-  const hasPlugin = plugins.includes(pluginName);
+  const hasPlugin = plugins.some((entry) =>
+    typeof entry === "string" ? entry === pluginName : entry.package === pluginName,
+  );
   if (!hasPlugin) plugins.push(pluginName);
 
   if (hasPlugin) {
     return { ok: true, changed: false, updatedText: text, plugins };
   }
 
-  const edits = modify(text, ["plugin"], plugins, {
+  const edits = modify(text, [field], plugins, {
     formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
   });
   const updatedText = applyEdits(text, edits);

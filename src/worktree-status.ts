@@ -1,4 +1,4 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { WorktreeContext } from "./context";
 
 import { formatCommand, formatError, renderTable } from "./format";
 import { getRepoRoot, getWorktrees, runGit } from "./git";
@@ -8,7 +8,7 @@ import { summarizePorcelain } from "./status";
 import { branchLabel, pathExists } from "./worktree-helpers";
 
 export const statusWorktrees = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: { path?: string; all?: boolean; porcelain?: boolean },
 ): Promise<ToolResult> => {
   const repoRoot = await getRepoRoot(ctx);

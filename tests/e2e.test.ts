@@ -45,7 +45,7 @@ test("open-trees add writes config when missing", async () => {
     expect(result.stdout).toContain("Added plugin");
 
     const text = await readFile(configPath, "utf8");
-    expect(text).toContain('"plugin"');
+    expect(JSON.parse(text)).toEqual({ plugins: ["open-trees"] });
     expect(text).toContain("open-trees");
   } finally {
     await rm(tempDir, { recursive: true, force: true });

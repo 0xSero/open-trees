@@ -14,7 +14,7 @@ bun install
 bun run lint
 bun run typecheck
 bun test
-bun run build
+bun run bundle
 bun run test:e2e
 ```
 

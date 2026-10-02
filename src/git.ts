@@ -1,4 +1,5 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import { execFile } from "node:child_process";
+import type { WorktreeContext } from "./context";
 
 import { formatCommand, formatError } from "./format";
 
@@ -28,23 +29,38 @@ const firstNonEmptyLine = (value: string) =>
     .find((line) => line.length > 0);
 
 export const runGit = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   args: string[],
   options: { cwd?: string } = {},
 ): Promise<GitCommandResult> => {
-  const shell = options.cwd ? ctx.$.cwd(options.cwd) : ctx.$;
-  const result = await shell`git ${args}`.nothrow().quiet();
-  const stdout = result.text().trimEnd();
-  const stderr = result.stderr.toString().trimEnd();
   const command = formatCommand(["git", ...args]);
-
-  return {
-    ok: result.exitCode === 0,
-    stdout,
-    stderr,
-    exitCode: result.exitCode,
-    command,
-  };
+  return new Promise((resolve, reject) => {
+    execFile(
+      "git",
+      args,
+      { cwd: options.cwd ?? ctx.directory, signal: ctx.signal, encoding: "utf8" },
+      (error, stdout, stderr) => {
+        if (error?.name === "AbortError") {
+          reject(error);
+          return;
+        }
+        const exitCode = error
+          ? typeof error.code === "number"
+            ? error.code
+            : error.code === "ENOENT"
+              ? 127
+              : 1
+          : 0;
+        resolve({
+          ok: exitCode === 0,
+          stdout: stdout.trimEnd(),
+          stderr: (stderr || error?.message || "").trimEnd(),
+          exitCode,
+          command,
+        });
+      },
+    );
+  });
 };
 
 export const formatGitFailure = (result: GitCommandResult, hint?: string) => {
@@ -79,7 +95,7 @@ export const formatGitFailure = (result: GitCommandResult, hint?: string) => {
   });
 };
 
-export const getRepoRoot = async (ctx: PluginInput) => {
+export const getRepoRoot = async (ctx: WorktreeContext) => {
   const result = await runGit(ctx, ["rev-parse", "--show-toplevel"]);
 
   if (!result.ok) {
@@ -99,7 +115,7 @@ export const getRepoRoot = async (ctx: PluginInput) => {
   return { ok: true as const, path: root };
 };
 
-export const getWorktrees = async (ctx: PluginInput, repoRoot: string) => {
+export const getWorktrees = async (ctx: WorktreeContext, repoRoot: string) => {
   const result = await runGit(ctx, ["worktree", "list", "--porcelain"], {
     cwd: repoRoot,
   });

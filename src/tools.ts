@@ -1,6 +1,5 @@
-import type { PluginInput, ToolDefinition } from "@opencode-ai/plugin";
-import { tool } from "@opencode-ai/plugin";
-
+import type { Info, ToolContext } from "@opencode/plugin/promise/tool";
+import type { WorktreeContext } from "./context";
 import { formatError } from "./format";
 import { getRepoRoot } from "./git";
 import { ensureModeEnabled, readMode, setMode } from "./mode";
@@ -17,234 +16,236 @@ import { dashboardWorktrees } from "./worktree-dashboard";
 import { forkWorktreeSession, openWorktreeSession, startWorktreeSession } from "./worktree-session";
 import { swarmWorktrees } from "./worktree-swarm";
 
-const z = tool.schema;
-
 const TOOL_CATALOG = [
-  {
-    id: "worktree_mode",
-    summary: "Enable/disable worktree mode and show help.",
-    examples: [
-      "worktree_mode",
-      'worktree_mode { "action": "on" }',
-      'worktree_mode { "action": "off" }',
-    ],
-  },
-  {
-    id: "worktree_overview",
-    summary: "List, status, or dashboard worktrees.",
-    examples: [
-      "worktree_overview",
-      'worktree_overview { "view": "status" }',
-      'worktree_overview { "view": "dashboard" }',
-    ],
-  },
-  {
-    id: "worktree_make",
-    summary: "Create or open worktrees and sessions.",
-    examples: [
-      'worktree_make { "action": "create", "name": "feature audit" }',
-      'worktree_make { "action": "start", "name": "feature audit", "openSessions": true }',
-      'worktree_make { "action": "open", "pathOrBranch": "feature/audit" }',
-    ],
-  },
-  {
-    id: "worktree_cleanup",
-    summary: "Remove or prune worktrees safely.",
-    examples: [
-      'worktree_cleanup { "action": "remove", "pathOrBranch": "feature/audit" }',
-      'worktree_cleanup { "action": "prune", "dryRun": true }',
-    ],
-  },
+  { id: "worktree_mode", summary: "Enable/disable worktree mode and show help." },
+  { id: "worktree_overview", summary: "List, status, or dashboard worktrees." },
+  { id: "worktree_make", summary: "Create or open worktrees and sessions." },
+  { id: "worktree_cleanup", summary: "Remove or prune worktrees safely." },
 ];
 
-const buildHelp = (modeEnabled: boolean, modePath: string, worktreeRoot?: string) => {
-  const lines = [`Worktree mode: ${modeEnabled ? "ON" : "OFF"}`, `State: ${modePath}`];
+const EXAMPLES = [
+  "worktree_mode",
+  'worktree_mode { "action": "on" }',
+  'worktree_mode { "action": "off" }',
+  "worktree_overview",
+  'worktree_overview { "view": "status" }',
+  'worktree_overview { "view": "dashboard" }',
+  'worktree_make { "action": "create", "name": "feature audit" }',
+  'worktree_make { "action": "start", "name": "feature audit", "openSessions": true }',
+  'worktree_make { "action": "open", "pathOrBranch": "feature/audit" }',
+  'worktree_cleanup { "action": "remove", "pathOrBranch": "feature/audit" }',
+  'worktree_cleanup { "action": "prune", "dryRun": true }',
+];
 
-  if (worktreeRoot) {
-    lines.push(`Default worktree root: ${worktreeRoot}`);
-  }
+function buildHelp(enabled: boolean, modePath: string, root?: string): string {
+  return [
+    `Worktree mode: ${enabled ? "ON" : "OFF"}`,
+    `State: ${modePath}`,
+    ...(root ? [`Default worktree root: ${root}`] : []),
+    "",
+    "Tools:",
+    ...TOOL_CATALOG.map((entry) => `- ${entry.id} — ${entry.summary}`),
+    "",
+    "Examples:",
+    ...EXAMPLES.map((example) => `- ${example}`),
+  ].join("\n");
+}
 
-  lines.push("");
-  lines.push("Tools:");
-  for (const entry of TOOL_CATALOG) {
-    lines.push(`- ${entry.id} — ${entry.summary}`);
-  }
-
-  lines.push("");
-  lines.push("Examples:");
-  for (const entry of TOOL_CATALOG) {
-    for (const example of entry.examples) {
-      lines.push(`- ${example}`);
-    }
-  }
-
-  return lines.join("\n");
+type ModeInput = { action?: "on" | "off" | "status" | "help" };
+type OverviewInput = {
+  view?: "list" | "status" | "dashboard";
+  path?: string;
+  all?: boolean;
+  porcelain?: boolean;
+};
+type MakeInput = {
+  action: "create" | "start" | "open" | "fork" | "swarm";
+  name?: string;
+  branch?: string;
+  base?: string;
+  path?: string;
+  pathOrBranch?: string;
+  openSessions?: boolean;
+  tasks?: string[];
+  prefix?: string;
+  force?: boolean;
+};
+type CleanupInput = {
+  action: "remove" | "prune";
+  pathOrBranch?: string;
+  force?: boolean;
+  dryRun?: boolean;
 };
 
-const renderToolResult = (result: ToolResult) => (result.ok ? result.output : result.error);
-
-const runWhenEnabled = async (fn: () => Promise<ToolResult>) => {
-  const modeResult = await ensureModeEnabled();
-  if (!modeResult.ok) return modeResult.error;
-  return renderToolResult(await fn());
-};
-
-export const createTools = (ctx: PluginInput): Record<string, ToolDefinition> => ({
-  worktree_mode: tool({
-    description: TOOL_CATALOG[0].summary,
-    args: {
-      action: z
-        .enum(["on", "off", "status", "help"])
-        .optional()
-        .describe("Enable/disable worktree mode or show help."),
-    },
-    async execute(args) {
-      const action = args.action ?? "status";
-
-      if (action === "on" || action === "off") {
-        const setResult = await setMode(action === "on");
-        if (!setResult.ok) return setResult.error;
-      }
-
-      const modeResult = await readMode();
-      if (!modeResult.ok) return modeResult.error;
-
-      const repoRoot = await getRepoRoot(ctx);
-      const worktreeRoot = repoRoot.ok ? getWorktreeRoot(repoRoot.path) : undefined;
-      const help = buildHelp(modeResult.state.enabled, modeResult.path, worktreeRoot);
-
-      if (action === "help") {
-        return help;
-      }
-
-      if (action === "status") {
-        return help;
-      }
-
-      return [`Worktree mode is now ${modeResult.state.enabled ? "ON" : "OFF"}.`, help].join(
-        "\n\n",
-      );
-    },
-  }),
-  worktree_overview: tool({
-    description: TOOL_CATALOG[1].summary,
-    args: {
-      view: z
-        .enum(["list", "status", "dashboard"])
-        .optional()
-        .describe("Which overview to show (default: list)."),
-      path: z.string().optional().describe("Filter to a specific worktree path (status view)."),
-      all: z.boolean().optional().describe("Include all known worktrees (status view)."),
-      porcelain: z.boolean().optional().describe("Include raw git status output (status view)."),
-    },
-    async execute(args) {
-      return runWhenEnabled(async () => {
-        const view = args.view ?? "list";
-        if (view === "dashboard") return dashboardWorktrees(ctx);
-        if (view === "status") {
-          return statusWorktrees(ctx, {
-            path: args.path,
-            all: args.all,
-            porcelain: args.porcelain,
-          });
+export function createTools(base: WorktreeContext): Info[] {
+  function define<Input>(
+    index: number,
+    input: Info["input"],
+    execute: (args: Input, ctx: WorktreeContext, context: ToolContext) => Promise<string>,
+    gated = true,
+  ): Info {
+    return {
+      name: TOOL_CATALOG[index].id,
+      description: TOOL_CATALOG[index].summary,
+      input,
+      options: { codemode: false },
+      async execute(args, context) {
+        if (gated) {
+          const mode = await ensureModeEnabled();
+          if (!mode.ok) return { content: mode.error };
         }
-        return listWorktrees(ctx);
-      });
-    },
-  }),
-  worktree_make: tool({
-    description: TOOL_CATALOG[2].summary,
-    args: {
-      action: z
-        .enum(["create", "start", "open", "fork", "swarm"])
-        .describe("Create/open worktrees or sessions."),
-      name: z.string().optional().describe("Logical name used to derive branch and folder."),
-      branch: z.string().optional().describe("Explicit branch name (overrides derived name)."),
-      base: z.string().optional().describe("Base ref for new branch (default: HEAD)."),
-      path: z.string().optional().describe("Explicit filesystem path for the worktree."),
-      pathOrBranch: z.string().optional().describe("Existing worktree path or branch to open."),
-      openSessions: z.boolean().optional().describe("Open the sessions UI after creation."),
-      tasks: z.array(z.string()).optional().describe("Task names for swarm worktrees."),
-      prefix: z.string().optional().describe("Branch prefix for swarm worktrees (default: wt/)."),
-      force: z.boolean().optional().describe("Allow existing branches or paths without skipping."),
-    },
-    async execute(args, context) {
-      return runWhenEnabled(async () => {
-        if (args.action === "create") {
-          if (!args.name && !args.branch) {
-            return {
-              ok: false,
-              error: formatError("Name or branch is required.", {
-                hint: "Provide name (for derived branch) or an explicit branch.",
-              }),
-            };
+        const ctx = { ...base, signal: context.signal, sessionID: context.sessionID };
+        return { content: await execute(args as Input, ctx, context) };
+      },
+    };
+  }
+  const render = (result: ToolResult): string => (result.ok ? result.output : result.error);
+  return [
+    define<ModeInput>(
+      0,
+      {
+        type: "object",
+        properties: {
+          action: {
+            type: "string",
+            enum: ["on", "off", "status", "help"],
+            description: "Enable/disable worktree mode or show help.",
+          },
+        },
+        additionalProperties: false,
+      },
+      async (args, ctx) => {
+        const action = args.action ?? "status";
+        if (action === "on" || action === "off") {
+          const result = await setMode(action === "on");
+          if (!result.ok) return result.error;
+        }
+        const mode = await readMode();
+        if (!mode.ok) return mode.error;
+        const repo = await getRepoRoot(ctx);
+        const help = buildHelp(
+          mode.state.enabled,
+          mode.path,
+          repo.ok ? getWorktreeRoot(repo.path) : undefined,
+        );
+        return action === "on" || action === "off"
+          ? `Worktree mode is now ${mode.state.enabled ? "ON" : "OFF"}.\n\n${help}`
+          : help;
+      },
+      false,
+    ),
+    define<OverviewInput>(
+      1,
+      {
+        type: "object",
+        properties: {
+          view: {
+            type: "string",
+            enum: ["list", "status", "dashboard"],
+            description: "Overview to show (default: list).",
+          },
+          path: { type: "string", description: "Filter to a worktree path (status view)." },
+          all: { type: "boolean", description: "Include all worktrees (status view)." },
+          porcelain: { type: "boolean", description: "Include raw Git status." },
+        },
+        additionalProperties: false,
+      },
+      async (args, ctx) =>
+        render(
+          args.view === "dashboard"
+            ? await dashboardWorktrees(ctx)
+            : args.view === "status"
+              ? await statusWorktrees(ctx, args)
+              : await listWorktrees(ctx),
+        ),
+    ),
+    define<MakeInput>(
+      2,
+      {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["create", "start", "open", "fork", "swarm"] },
+          name: { type: "string", description: "Logical name used to derive branch and folder." },
+          branch: { type: "string", description: "Explicit branch (overrides derived name)." },
+          base: { type: "string", description: "Base ref for a new branch (default: HEAD)." },
+          path: { type: "string", description: "Explicit filesystem path." },
+          pathOrBranch: { type: "string", description: "Existing worktree path or branch." },
+          openSessions: {
+            type: "boolean",
+            description: "Request the native sessions picker after creation.",
+          },
+          tasks: {
+            type: "array",
+            items: { type: "string" },
+            description: "Task names for swarm worktrees.",
+          },
+          prefix: { type: "string", description: "Swarm branch prefix (default: wt/)." },
+          force: {
+            type: "boolean",
+            description: "Allow existing swarm branches/paths instead of skipping.",
+          },
+        },
+        required: ["action"],
+        additionalProperties: false,
+      },
+      async (args, ctx, context) => {
+        if (args.action === "fork" || args.action === "swarm") {
+          try {
+            await ctx.ensureForkAvailable?.(context.signal);
+          } catch (error) {
+            return formatError("Session fork unavailable.", {
+              details: error instanceof Error ? error.message : String(error),
+            });
           }
-          return createWorktree(ctx, args);
         }
-
-        if (args.action === "start") {
-          return startWorktreeSession(ctx, args);
-        }
-
+        if (args.action === "create") return render(await createWorktree(ctx, args));
+        if (args.action === "start") return render(await startWorktreeSession(ctx, args));
         if (args.action === "open") {
-          if (!args.pathOrBranch && !args.path && !args.name && !args.branch) {
-            return {
-              ok: false,
-              error: formatError("Path or branch is required.", {
-                hint: "Provide pathOrBranch, path, name, or branch to open.",
-              }),
-            };
-          }
-          return openWorktreeSession(ctx, args);
+          if (!args.pathOrBranch && !args.path && !args.name && !args.branch)
+            return formatError("Path or branch is required.", {
+              hint: "Provide pathOrBranch, path, name, or branch to open.",
+            });
+          return render(await openWorktreeSession(ctx, args));
         }
-
-        if (args.action === "fork") {
-          return forkWorktreeSession(ctx, context.sessionID, args);
-        }
-
-        if (!args.tasks || args.tasks.length === 0) {
-          return {
-            ok: false,
-            error: formatError("Tasks array is required.", {
-              hint: "Provide one or more task names.",
-            }),
-          };
-        }
-
-        return swarmWorktrees(ctx, context.sessionID, {
-          tasks: args.tasks,
-          prefix: args.prefix,
-          openSessions: args.openSessions,
-          force: args.force,
-        });
-      });
-    },
-  }),
-  worktree_cleanup: tool({
-    description: TOOL_CATALOG[3].summary,
-    args: {
-      action: z.enum(["remove", "prune"]).describe("Remove or prune worktrees."),
-      pathOrBranch: z.string().optional().describe("Worktree path or branch name to remove."),
-      force: z.boolean().optional().describe("Remove even if the worktree has local changes."),
-      dryRun: z.boolean().optional().describe("Preview prune results."),
-    },
-    async execute(args) {
-      return runWhenEnabled(async () => {
-        if (args.action === "prune") {
-          return pruneWorktrees(ctx, { dryRun: args.dryRun });
-        }
-
-        if (!args.pathOrBranch) {
-          return {
-            ok: false,
-            error: formatError("pathOrBranch is required.", {
-              hint: "Provide a worktree path or branch name.",
-            }),
-          };
-        }
-
-        return removeWorktree(ctx, { pathOrBranch: args.pathOrBranch, force: args.force });
-      });
-    },
-  }),
-});
+        if (args.action === "fork")
+          return render(await forkWorktreeSession(ctx, context.sessionID, args));
+        if (!args.tasks?.length)
+          return formatError("Tasks array is required.", {
+            hint: "Provide one or more task names.",
+          });
+        return render(
+          await swarmWorktrees(ctx, context.sessionID, {
+            tasks: args.tasks,
+            prefix: args.prefix,
+            openSessions: args.openSessions,
+            force: args.force,
+          }),
+        );
+      },
+    ),
+    define<CleanupInput>(
+      3,
+      {
+        type: "object",
+        properties: {
+          action: { type: "string", enum: ["remove", "prune"] },
+          pathOrBranch: { type: "string", description: "Worktree path or branch to remove." },
+          force: { type: "boolean", description: "Remove even if the worktree has local changes." },
+          dryRun: { type: "boolean", description: "Preview prune results." },
+        },
+        required: ["action"],
+        additionalProperties: false,
+      },
+      async (args, ctx) => {
+        if (args.action === "prune") return render(await pruneWorktrees(ctx, args));
+        if (!args.pathOrBranch)
+          return formatError("pathOrBranch is required.", {
+            hint: "Provide a worktree path or branch name.",
+          });
+        return render(
+          await removeWorktree(ctx, { pathOrBranch: args.pathOrBranch, force: args.force }),
+        );
+      },
+    ),
+  ];
+}

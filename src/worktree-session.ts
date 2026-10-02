@@ -1,11 +1,15 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { WorktreeContext } from "./context";
 
 import { formatError } from "./format";
 import { getRepoRoot, getWorktrees, type WorktreeInfo } from "./git";
 import { normalizeBranchName, pathsEqual, resolveWorktreePath } from "./paths";
 import { err, ok, type ToolResult } from "./result";
-import { unwrapSdkResponse } from "./sdk";
-import { openSessionsUi, updateSessionTitle } from "./session-helpers";
+import {
+  forkIntoWorktree,
+  openSessionsUi,
+  sessionOperation,
+  updateSessionTitle,
+} from "./session-helpers";
 import { storeSessionMapping } from "./state";
 import { createWorktreeDetails } from "./worktree";
 import { branchLabel, findWorktreeMatch } from "./worktree-helpers";
@@ -20,7 +24,7 @@ const buildNextSteps = (
   const openLabel = openSessionsRequested
     ? openSessionsFailed
       ? "retry with openSessions: true (or run /sessions)"
-      : "already opened"
+      : "requested (or run /sessions)"
     : "set openSessions: true (or run /sessions)";
   const steps = [
     "Next steps:",
@@ -157,7 +161,7 @@ const resolveExistingTarget = (repoRoot: string, worktrees: WorktreeInfo[], inpu
 };
 
 const resolveSessionTarget = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: WorktreeSessionOptions,
   requireExisting: boolean,
 ): Promise<{ ok: true; target: WorktreeSessionTarget } | { ok: false; error: string }> => {
@@ -251,16 +255,20 @@ const resolveSessionTarget = async (
 };
 
 const createSessionFromTarget = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   target: WorktreeSessionTarget,
   options: WorktreeSessionOptions,
 ): Promise<ToolResult> => {
   const title = `wt:${target.branch}`;
-  const sessionResponse = await ctx.client.session.create({
-    query: { directory: target.worktreePath },
-    body: { title },
-  });
-  const sessionResult = unwrapSdkResponse<{ id: string }>(sessionResponse, "Session create");
+  const sessionResult = await sessionOperation("Session create", () =>
+    ctx.session.create(
+      {
+        location: { directory: target.worktreePath },
+        title,
+      },
+      { signal: ctx.signal },
+    ),
+  );
   if (!sessionResult.ok) return err(sessionResult.error);
   if (!sessionResult.data?.id) {
     return err(formatError("Session create returned no ID."));
@@ -309,7 +317,7 @@ const createSessionFromTarget = async (
 };
 
 export const startWorktreeSession = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: WorktreeSessionOptions,
 ): Promise<ToolResult> => {
   const targetResult = await resolveSessionTarget(ctx, options, false);
@@ -318,7 +326,7 @@ export const startWorktreeSession = async (
 };
 
 export const openWorktreeSession = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   options: WorktreeSessionOptions,
 ): Promise<ToolResult> => {
   const targetResult = await resolveSessionTarget(ctx, options, true);
@@ -327,7 +335,7 @@ export const openWorktreeSession = async (
 };
 
 export const forkWorktreeSession = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   sessionID: string | undefined,
   options: WorktreeSessionOptions,
 ): Promise<ToolResult> => {
@@ -342,11 +350,7 @@ export const forkWorktreeSession = async (
   const targetResult = await resolveSessionTarget(ctx, options, false);
   if (!targetResult.ok) return err(targetResult.error);
 
-  const forkResponse = await ctx.client.session.fork({
-    path: { id: sessionID },
-    query: { directory: targetResult.target.worktreePath },
-  });
-  const forkResult = unwrapSdkResponse<{ id: string }>(forkResponse, "Session fork");
+  const forkResult = await forkIntoWorktree(ctx, sessionID, targetResult.target.worktreePath);
   if (!forkResult.ok) return err(forkResult.error);
   if (!forkResult.data?.id) {
     return err(formatError("Session fork returned no ID."));

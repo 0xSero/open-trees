@@ -1,11 +1,10 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { WorktreeContext } from "./context";
 
 import { formatError, renderTable } from "./format";
 import { formatGitFailure, getRepoRoot, runGit } from "./git";
 import { defaultWorktreePath, normalizeBranchName } from "./paths";
 import { err, ok, type ToolResult } from "./result";
-import { unwrapSdkResponse } from "./sdk";
-import { openSessionsUi, updateSessionTitle } from "./session-helpers";
+import { forkIntoWorktree, openSessionsUi, updateSessionTitle } from "./session-helpers";
 import { getStatePath, storeSessionMapping } from "./state";
 import { createWorktreeDetails } from "./worktree";
 import { pathExists } from "./worktree-helpers";
@@ -17,7 +16,7 @@ const buildBranchName = (prefix: string, task: string) => {
   return `${trimmedPrefix}${task}`;
 };
 
-const checkBranchExists = async (ctx: PluginInput, repoRoot: string, branch: string) => {
+const checkBranchExists = async (ctx: WorktreeContext, repoRoot: string, branch: string) => {
   const result = await runGit(ctx, ["show-ref", "--verify", "--quiet", `refs/heads/${branch}`], {
     cwd: repoRoot,
   });
@@ -35,7 +34,7 @@ type SwarmOptions = {
 };
 
 export const swarmWorktrees = async (
-  ctx: PluginInput,
+  ctx: WorktreeContext,
   sessionID: string | undefined,
   options: SwarmOptions,
 ): Promise<ToolResult> => {
@@ -108,11 +107,7 @@ export const swarmWorktrees = async (
       continue;
     }
 
-    const forkResponse = await ctx.client.session.fork({
-      path: { id: sessionID },
-      query: { directory: worktreeResult.result.worktreePath },
-    });
-    const forkResult = unwrapSdkResponse<{ id: string }>(forkResponse, "Session fork");
+    const forkResult = await forkIntoWorktree(ctx, sessionID, worktreeResult.result.worktreePath);
     if (!forkResult.ok) {
       rows.push([rawTask, branch, worktreePath, "-", "error"]);
       notes.push(`${branch}: ${firstLine(forkResult.error)}`);

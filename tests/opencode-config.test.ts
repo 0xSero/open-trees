@@ -59,3 +59,22 @@ test("updateConfigText rejects non-array plugin fields", () => {
   const result = updateConfigText(input, "open-trees");
   expect(result.ok).toBe(false);
 });
+
+test("updateConfigText creates a native V2 plugins array", () => {
+  const result = updateConfigText(null, "open-trees");
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error(result.error);
+  expect(JSON.parse(result.updatedText)).toEqual({ plugins: ["open-trees"] });
+});
+
+test("updateConfigText appends to native plugins without shadowing them with legacy plugin", () => {
+  const input =
+    '{"plugins":[{"package":"example-plugin","options":{"strict":true}}],"model":"example/model"}';
+  const result = updateConfigText(input, "open-trees");
+  expect(result.ok).toBe(true);
+  if (!result.ok) throw new Error(result.error);
+  expect(JSON.parse(result.updatedText)).toEqual({
+    plugins: [{ package: "example-plugin", options: { strict: true } }, "open-trees"],
+    model: "example/model",
+  });
+});

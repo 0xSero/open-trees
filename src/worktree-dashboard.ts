@@ -1,9 +1,9 @@
-import type { PluginInput } from "@opencode-ai/plugin";
+import type { WorktreeContext } from "./context";
 
 import { formatError, renderTable } from "./format";
 import { runGit } from "./git";
 import { err, ok, type ToolResult } from "./result";
-import { unwrapSdkResponse } from "./sdk";
+import { sessionOperation } from "./session-helpers";
 import { readState } from "./state";
 import { summarizePorcelain } from "./status";
 import { pathExists } from "./worktree-helpers";
@@ -20,7 +20,7 @@ const formatTimestamp = (value: number | string | undefined) => {
   return "-";
 };
 
-const resolveBranch = async (ctx: PluginInput, worktreePath: string, fallback: string) => {
+const resolveBranch = async (ctx: WorktreeContext, worktreePath: string, fallback: string) => {
   const result = await runGit(ctx, ["rev-parse", "--abbrev-ref", "HEAD"], {
     cwd: worktreePath,
   });
@@ -38,7 +38,7 @@ const resolveBranch = async (ctx: PluginInput, worktreePath: string, fallback: s
   return { branch: name };
 };
 
-const resolveDirty = async (ctx: PluginInput, worktreePath: string) => {
+const resolveDirty = async (ctx: WorktreeContext, worktreePath: string) => {
   const result = await runGit(ctx, ["status", "--porcelain"], { cwd: worktreePath });
   if (!result.ok) {
     return {
@@ -51,9 +51,14 @@ const resolveDirty = async (ctx: PluginInput, worktreePath: string) => {
   return { dirty: summary.clean ? "clean" : "dirty" };
 };
 
-const resolveSessionUpdatedAt = async (ctx: PluginInput, sessionID: string, fallback: string) => {
-  const response = await ctx.client.session.get({ path: { id: sessionID } });
-  const result = unwrapSdkResponse<{ time?: { updated?: number } }>(response, "Session lookup");
+const resolveSessionUpdatedAt = async (
+  ctx: WorktreeContext,
+  sessionID: string,
+  fallback: string,
+) => {
+  const result = await sessionOperation("Session lookup", () =>
+    ctx.session.get({ sessionID }, { signal: ctx.signal }),
+  );
   if (!result.ok) {
     return { updatedAt: fallback, note: firstLine(result.error) };
   }
@@ -62,7 +67,7 @@ const resolveSessionUpdatedAt = async (ctx: PluginInput, sessionID: string, fall
   return { updatedAt };
 };
 
-export const dashboardWorktrees = async (ctx: PluginInput): Promise<ToolResult> => {
+export const dashboardWorktrees = async (ctx: WorktreeContext): Promise<ToolResult> => {
   const stateResult = await readState();
   if (!stateResult.ok) return err(stateResult.error);
 

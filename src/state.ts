@@ -16,6 +16,31 @@ type WorktreeState = {
 
 export const getStatePath = () => getOpenTreesPath("state.json");
 
+// V2 can load local sources into distinct module generations in the same host.
+// Share queues across generations, keyed by the exact file being changed, and
+// serialize complete read/modify/write operations rather than just writes.
+const queuesKey = Symbol.for("open-trees.state-queues");
+const host = globalThis as typeof globalThis & {
+  [queuesKey]?: Map<string, Promise<void>>;
+};
+const stateQueues = host[queuesKey] ?? new Map<string, Promise<void>>();
+host[queuesKey] = stateQueues;
+
+const serializeState = <T>(operation: (statePath: string) => Promise<T>): Promise<T> => {
+  const statePath = getStatePath();
+  const result = (stateQueues.get(statePath) ?? Promise.resolve()).then(() => operation(statePath));
+  const tail = result.then(
+    () => {},
+    () => {},
+  );
+  stateQueues.set(statePath, tail);
+  void tail.then(() => {
+    // A completed operation must not remove a newer operation's queue.
+    if (stateQueues.get(statePath) === tail) stateQueues.delete(statePath);
+  });
+  return result;
+};
+
 const isValidEntry = (value: unknown): value is WorktreeSessionEntry => {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
@@ -34,11 +59,9 @@ const normalizeState = (value: unknown): WorktreeState => {
   return { entries };
 };
 
-export const readState = async (): Promise<
-  { ok: true; state: WorktreeState; path: string } | { ok: false; error: string }
-> => {
-  const statePath = getStatePath();
-
+const readStateFile = async (
+  statePath: string,
+): Promise<{ ok: true; state: WorktreeState; path: string } | { ok: false; error: string }> => {
   try {
     const raw = await readFile(statePath, "utf8");
     const parsed = JSON.parse(raw);
@@ -64,6 +87,8 @@ export const readState = async (): Promise<
   }
 };
 
+export const readState = () => serializeState(readStateFile);
+
 const writeState = async (statePath: string, state: WorktreeState) => {
   const dirResult = await ensureConfigDir(statePath);
   if (!dirResult.ok) return dirResult;
@@ -83,33 +108,35 @@ const writeState = async (statePath: string, state: WorktreeState) => {
   }
 };
 
-export const storeSessionMapping = async (entry: WorktreeSessionEntry) => {
-  const stateResult = await readState();
-  if (!stateResult.ok) return stateResult;
+export const storeSessionMapping = (entry: WorktreeSessionEntry) =>
+  serializeState(async (statePath) => {
+    const stateResult = await readStateFile(statePath);
+    if (!stateResult.ok) return stateResult;
 
-  const filtered = stateResult.state.entries.filter(
-    (existing) =>
-      existing.worktreePath !== entry.worktreePath && existing.sessionID !== entry.sessionID,
-  );
-  const nextState: WorktreeState = { entries: [...filtered, entry] };
+    const filtered = stateResult.state.entries.filter(
+      (existing) =>
+        existing.worktreePath !== entry.worktreePath && existing.sessionID !== entry.sessionID,
+    );
+    const nextState: WorktreeState = { entries: [...filtered, entry] };
 
-  const writeResult = await writeState(stateResult.path, nextState);
-  if (!writeResult.ok) return writeResult;
-  return { ok: true as const, path: stateResult.path };
-};
+    const writeResult = await writeState(stateResult.path, nextState);
+    if (!writeResult.ok) return writeResult;
+    return { ok: true as const, path: stateResult.path };
+  });
 
-export const removeSessionMappings = async (sessionID: string) => {
-  const stateResult = await readState();
-  if (!stateResult.ok) return stateResult;
+export const removeSessionMappings = (sessionID: string) =>
+  serializeState(async (statePath) => {
+    const stateResult = await readStateFile(statePath);
+    if (!stateResult.ok) return stateResult;
 
-  const nextEntries = stateResult.state.entries.filter((entry) => entry.sessionID !== sessionID);
-  const removedCount = stateResult.state.entries.length - nextEntries.length;
+    const nextEntries = stateResult.state.entries.filter((entry) => entry.sessionID !== sessionID);
+    const removedCount = stateResult.state.entries.length - nextEntries.length;
 
-  if (removedCount === 0) {
-    return { ok: true as const, removed: 0, path: stateResult.path };
-  }
+    if (removedCount === 0) {
+      return { ok: true as const, removed: 0, path: stateResult.path };
+    }
 
-  const writeResult = await writeState(stateResult.path, { entries: nextEntries });
-  if (!writeResult.ok) return writeResult;
-  return { ok: true as const, removed: removedCount, path: stateResult.path };
-};
+    const writeResult = await writeState(stateResult.path, { entries: nextEntries });
+    if (!writeResult.ok) return writeResult;
+    return { ok: true as const, removed: removedCount, path: stateResult.path };
+  });
